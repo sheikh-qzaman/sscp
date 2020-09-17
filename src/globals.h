@@ -1,0 +1,42 @@
+#ifndef __GLOBALS_H__
+#define __GLOBALS_H__
+
+#define MAX_IF_NAME_LEN         128
+
+typedef enum e_err
+{
+    ERR_OK  = 0,
+    ERR_ALLOC,
+    ERR_SOCKET,
+    ERR_VERSION,
+    ERR_BADPKT,
+    ERR_LIBEVENT,
+    ERR_EXIST,
+    ERR_NOT_FOUND,
+    ERR_DNS,
+    ERR_EMPTY,
+    ERR_BAD_PARAM,
+    ERR_WRITE_FAILED,
+    ERR_SEND_FAIL,
+    ERR_ENCODE_FAIL,
+    ERR_AGAIN,
+    ERR_BAD_CTX,
+    ERR_CONFD_FAIL,
+    ERR_KERNEL,
+    ERR_NS_FAILED,
+    ERR_PORT_NOT_PRESENT,
+    ERR_ILLEGAL_PEER,
+    ERR_INIT_FAILED,
+    ERR_NOT_FRAGMENT,
+    ERR_NOT_REASSEMBLED,
+    ERR_IOCTL,
+	ERR_SQL_INIT_FAIL,
+    ERR_SYSCALL_FAIL,
+    ERR_SSL,
+    ERR_LOCK,
+    ERR_FAIL,
+    ERR_IN_PROGRESS,
+    ERR_IGNORE
+} e_err;
+
+#endif

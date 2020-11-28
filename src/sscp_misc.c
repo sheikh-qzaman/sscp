@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include <sscp.h>
-#include <sscp_debug.h>
+#include <logging.h>
 
 void
 set_config_params(int argc, char *argv[], t_init_cfg *cfg)

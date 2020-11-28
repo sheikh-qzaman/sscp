@@ -4,6 +4,7 @@
 #include <dll.h>
 #include <globals.h>
 #include <common.h>
+#include <transport.h>
 
 typedef struct init_cfg
 {
@@ -15,9 +16,11 @@ typedef struct init_cfg
  */
 typedef struct cpmgr_ctx
 {
-    struct event_base       *p_event_base;
+    struct event_base       *event_base;
     t_dll                   wan_intf_list;
 } t_cpmgr_ctx;
 
-extern void set_config_params(int argc, char *argv[], t_init_cfg *cfg);
+t_cpmgr_ctx* cpmgr_get_ctx();
+void tls_readcb(struct bufferevent * bev, void * arg);
+
 #endif

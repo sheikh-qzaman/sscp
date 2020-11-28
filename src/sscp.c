@@ -1,14 +1,27 @@
+/* Simple echo server using OpenSSL bufferevents */
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <event2/event.h>
-#include <event2/event-config.h>
-#include <event2/util.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-#include <sscp.h>
-#include <sscp_debug.h>
-#include <transport.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/rand.h>
 
-/* GLOBAL VARIABLES*/
-static t_cpmgr_ctx                 g_cpmgr_ctx;
+#include <event.h>
+#include <event2/listener.h>
+#include <event2/bufferevent_ssl.h>
+
+#include "logging.h"
+#include "sscp.h"
+#include "transport.h"
+#include <conn_mgr.h>
+
+extern void set_config_params(int argc, char *argv[], t_init_cfg *cfg);
+
+static t_cpmgr_ctx                  g_cpmgr_ctx;
 
 t_cpmgr_ctx*
 cpmgr_get_ctx()
@@ -17,71 +30,100 @@ cpmgr_get_ctx()
 }
 
 void
-sscp_init()
+populate_wan_intf_list(t_dll *p_wan_intf_list)
 {
-    t_cpmgr_ctx         *cpmgr_ctx_p = cpmgr_get_ctx();
+    t_wan_intf_node         *p_wan_intf;
 
-    DLL_INIT(&cpmgr_ctx_p->wan_intf_list);
-    populate_wan_intf_list(&cpmgr_ctx_p->wan_intf_list);
+    p_wan_intf = calloc(1, sizeof(t_wan_intf_node));
+    memcpy(&p_wan_intf->name, "ens3", 4); /* memcpy is fine here as source is null terminated*/
+    p_wan_intf->pub_loc.sin_family = AF_INET;
+    p_wan_intf->pub_loc.sin_addr.s_addr = inet_addr("15.0.0.1"); /* v4addr is in_addr of network order. inet_addr returns in network order */
+    p_wan_intf->pub_loc.sin_port = htons(DEFAULT_TCP_PORT);      /* in_port_t is in network order, so convert from host order. */
+
+    DLL_ADD(p_wan_intf_list, &p_wan_intf->dl_node);
 }
 
 void
-sscp_destroy()
+sscp_init()
 {
+    t_cpmgr_ctx         *cpmgr_ctx_p = &g_cpmgr_ctx;
+
+    DLL_INIT(&cpmgr_ctx_p->wan_intf_list);
+    populate_wan_intf_list(&cpmgr_ctx_p->wan_intf_list);
 }
 
 e_err
 event_base_create()
 {
     t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
-	struct event_config     *p_cfg;
     struct event_base       *p_event_base;
 
-    p_cfg = event_config_new();
-    if (NULL == p_cfg) {
-        return ERR_ALLOC;
-    }
+    p_event_base = event_base_new();
+    p_cpmgr_ctx->event_base = p_event_base;
 
-    /*
-     * TODO Why we are using edge-triggered over level triggered
-     * Enable edge-trigger, O(1) event insertion/deletion and all FD types.
-     */
-    event_config_require_features(p_cfg, EV_FEATURE_ET | EV_FEATURE_O1);
-
-    event_config_set_flag(p_cfg, EVENT_BASE_FLAG_NOLOCK); /* TODO Set lib-event to be fully lockless. */
-    p_event_base = event_base_new_with_config(p_cfg);
-
-    event_base_priority_init(p_event_base, 2); /* TODO assume two priority levels for different events for now */
-    event_config_free(p_cfg);
-
-    if (NULL == p_event_base) {
-        return ERR_ALLOC;
-    }
-
-	p_cpmgr_ctx->p_event_base = p_event_base;
     return ERR_OK;
 }
 
+void
+tls_readcb(struct bufferevent * bev, void * arg)
+{
+    printf("Reading from buffer\n");
+    struct evbuffer *in = bufferevent_get_input(bev);
+
+    printf("Received %zu bytes\n", evbuffer_get_length(in));
+    printf("----- data ----\n");
+    printf("%.*s\n", (int)evbuffer_get_length(in), evbuffer_pullup(in, -1));
+
+    printf("Writing to buffer\n");
+    bufferevent_write_buffer(bev, in);
+    printf("Wrote to buffer\n");
+}
+
+void
+sscp_listen()
+{
+    t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
+    t_wan_intf_node         *p_wan_intf;
+
+    p_wan_intf = DLL_FIRST(t_wan_intf_node, dl_node, &p_cpmgr_ctx->wan_intf_list);
+    tcp_listener_create(p_wan_intf);
+}
+
+void
+sscp_destroy()
+{
+    t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
+    t_wan_intf_node         *p_wan_intf;
+
+    p_wan_intf = DLL_FIRST(t_wan_intf_node, dl_node, &p_cpmgr_ctx->wan_intf_list);
+
+    evconnlistener_free(p_wan_intf->tcp_listener);
+    SSL_CTX_free(p_wan_intf->tls_server_ctx);
+}
+
 int
-main(int argc, char *argv[])
+main(int argc, char **argv)
 {
     t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
     t_init_cfg              cfg;
 
+    SSL_CTX *ctx;
+
     SSCP_SYSLOG_INIT("SSCP");
     SSCP_DEBUGLOG("Secure Scalabale Control Plane.");
-    
+
     memset(&cfg, 0x0, sizeof(t_init_cfg));
     set_config_params(argc, argv, &cfg);
 
     sscp_init();
 
     event_base_create();
-    event_base_loop(p_cpmgr_ctx->p_event_base, 0); /* TODO Any flags needed in second parameter?*/
+    
+    sscp_listen();
+
+    event_base_loop(p_cpmgr_ctx->event_base, 0);
 
     sscp_destroy();
-
-    SSCP_SYSLOG_DONE();
 
     return 0;
 }

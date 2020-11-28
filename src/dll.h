@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#define OFFSET(t, f)    ((size_t)(char *)&((t *)0)->f)
+
 typedef struct t_dlnode
 {
     struct t_dlnode *p_next;

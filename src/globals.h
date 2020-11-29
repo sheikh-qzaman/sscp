@@ -33,6 +33,8 @@ typedef enum e_err
 	ERR_SQL_INIT_FAIL,
     ERR_SYSCALL_FAIL,
     ERR_SSL,
+    ERR_TCP,
+    ERR_CERT,
     ERR_LOCK,
     ERR_FAIL,
     ERR_IN_PROGRESS,

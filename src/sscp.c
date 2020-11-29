@@ -14,14 +14,17 @@
 #include <event2/listener.h>
 #include <event2/bufferevent_ssl.h>
 
-#include "logging.h"
-#include "sscp.h"
-#include "transport.h"
+#include <logging.h>
+#include <sscp.h>
+#include <transport.h>
 #include <conn_mgr.h>
+#include <peer.h>
+#include <client.h>
 
 extern void set_config_params(int argc, char *argv[], t_init_cfg *cfg);
 
 static t_cpmgr_ctx                  g_cpmgr_ctx;
+t_init_cfg                          cfg;
 
 t_cpmgr_ctx*
 cpmgr_get_ctx()
@@ -85,8 +88,22 @@ sscp_listen()
     t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
     t_wan_intf_node         *p_wan_intf;
 
+    SSCP_DEBUGLOG("Starting in server mode.");
+
     p_wan_intf = DLL_FIRST(t_wan_intf_node, dl_node, &p_cpmgr_ctx->wan_intf_list);
     tcp_listener_create(p_wan_intf);
+}
+
+void
+sscp_connect()
+{
+    t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
+    t_wan_intf_node         *p_wan_intf;
+
+    SSCP_DEBUGLOG("Starting in server mode.");
+
+    p_wan_intf = DLL_FIRST(t_wan_intf_node, dl_node, &p_cpmgr_ctx->wan_intf_list);
+    create_ssl_client(p_wan_intf);
 }
 
 void
@@ -97,15 +114,23 @@ sscp_destroy()
 
     p_wan_intf = DLL_FIRST(t_wan_intf_node, dl_node, &p_cpmgr_ctx->wan_intf_list);
 
-    evconnlistener_free(p_wan_intf->tcp_listener);
-    SSL_CTX_free(p_wan_intf->tls_server_ctx);
+    while (p_wan_intf) {
+        if (p_wan_intf->tcp_listener) {
+            evconnlistener_free(p_wan_intf->tcp_listener);
+        }
+
+        if (p_wan_intf->tls_server_ctx) {
+            SSL_CTX_free(p_wan_intf->tls_server_ctx);
+        }
+
+        p_wan_intf = DLL_NEXT(t_wan_intf_node, dl_node, p_wan_intf);
+    }
 }
 
 int
 main(int argc, char **argv)
 {
     t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
-    t_init_cfg              cfg;
 
     SSL_CTX *ctx;
 
@@ -119,7 +144,11 @@ main(int argc, char **argv)
 
     event_base_create();
     
-    sscp_listen();
+    if (cfg.oper_mode == MODE_SERVER) {
+        sscp_listen();
+    } else {
+        sscp_connect();
+    }
 
     event_base_loop(p_cpmgr_ctx->event_base, 0);
 

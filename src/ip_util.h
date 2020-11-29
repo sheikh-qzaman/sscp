@@ -5,10 +5,10 @@
 #include <sys/socket.h>
 #include <string.h>
 
-#define IPV4_ADDR_LEN        4
-#define IPV6_ADDR_LEN       16
+#define IPV4_ADDR_LEN       32
+#define IPV6_ADDR_LEN       128
 #define IPV4_PREFIX_LEN     32
-#define IPV6_PREFIX_LEN    128
+#define IPV6_PREFIX_LEN    	128
 
 typedef enum e_ipaddr_type
 {
@@ -55,6 +55,28 @@ static inline void IPADDR_INIT(t_ipaddr *p_ip, e_ipaddr_type type)
 {
         memset(p_ip, 0, sizeof(t_ipaddr));
         p_ip->addr_type = type;
+}
+
+static inline char *
+get_ip_str(const struct sockaddr *sa, char *s, size_t maxlen)
+{
+    switch(sa->sa_family) {
+        case AF_INET:
+            inet_ntop(AF_INET, &(((struct sockaddr_in *)sa)->sin_addr),
+                    s, maxlen);
+            break;
+
+        case AF_INET6:
+            inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)sa)->sin6_addr),
+                    s, maxlen);
+            break;
+
+        default:
+            strncpy(s, "Unknown AF", maxlen);
+            return NULL;
+    }
+
+    return s;
 }
 
 #endif

@@ -51,6 +51,8 @@ sscp_init()
 {
     t_cpmgr_ctx         *cpmgr_ctx_p = &g_cpmgr_ctx;
 
+    create_ssl_ctx();
+
     DLL_INIT(&cpmgr_ctx_p->wan_intf_list);
     populate_wan_intf_list(&cpmgr_ctx_p->wan_intf_list);
 }
@@ -100,7 +102,7 @@ sscp_connect()
     t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
     t_wan_intf_node         *p_wan_intf;
 
-    SSCP_DEBUGLOG("Starting in server mode.");
+    SSCP_DEBUGLOG("Starting in client mode.");
 
     p_wan_intf = DLL_FIRST(t_wan_intf_node, dl_node, &p_cpmgr_ctx->wan_intf_list);
     create_ssl_client(p_wan_intf);
@@ -119,11 +121,15 @@ sscp_destroy()
             evconnlistener_free(p_wan_intf->tcp_listener);
         }
 
-        if (p_wan_intf->tls_server_ctx) {
-            SSL_CTX_free(p_wan_intf->tls_server_ctx);
-        }
-
         p_wan_intf = DLL_NEXT(t_wan_intf_node, dl_node, p_wan_intf);
+    }
+
+    if (p_cpmgr_ctx->ssl_client_ctx) {
+        SSL_CTX_free(p_cpmgr_ctx->ssl_client_ctx);
+    }
+
+    if (p_cpmgr_ctx->ssl_server_ctx) {
+        SSL_CTX_free(p_cpmgr_ctx->ssl_server_ctx);
     }
 }
 

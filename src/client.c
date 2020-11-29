@@ -217,14 +217,16 @@ create_ssl_client(t_wan_intf_node *p_wan_intf)
 {
     t_cpmgr_ctx             *p_cpmgr_ctx = cpmgr_get_ctx();
     t_peer                  *p_peer = g_peer;
-    int                     sock, ret, err;
+    int                     ret, err;
     
-    create_ssl_client_ctx(p_wan_intf);
+    if (!p_cpmgr_ctx->ssl_client_ctx) {
+        create_ssl_client_ctx();
+    }
 
     p_peer = calloc(1, sizeof(t_peer));
     // using default context
     //p_peer->ctx = client_ctx;
-    p_peer->ssl = SSL_new(p_wan_intf->ssl_client_ctx);
+    p_peer->ssl = SSL_new(p_cpmgr_ctx->ssl_client_ctx);
 
     //  tcp connection
     if (connectsock(p_peer, host, port) != ERR_OK) {

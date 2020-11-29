@@ -8,6 +8,7 @@
 #include <openssl/x509_vfy.h>
 #include <openssl/rand.h>
 
+#include <sscp.h>
 #include <ssl_utils.h> 
 #include <logging.h>
 
@@ -175,6 +176,7 @@ create_ssl_ctx()
     /* Initialize the OpenSSL library */
     SSL_load_error_strings();
     SSL_library_init();
+
     /* We MUST have entropy, or else there's no point to crypto. */
     if (!RAND_poll()) {
         return ERR_SSL;
@@ -184,15 +186,11 @@ create_ssl_ctx()
 }
 
 e_err
-create_ssl_client_ctx(t_wan_intf_node *p_wan_intf)
+create_ssl_client_ctx()
 {
+    t_cpmgr_ctx     *p_cpmgr_ctx = cpmgr_get_ctx();
     SSL_CTX         *ssl_client_ctx;
     int             ret;
-
-    ret = create_ssl_ctx();
-    if (ret != ERR_OK) {
-        return ret;
-    }
 
     ssl_client_ctx = SSL_CTX_new(SSLv23_client_method());
 
@@ -229,39 +227,36 @@ create_ssl_client_ctx(t_wan_intf_node *p_wan_intf)
      */
     SSL_CTX_set_verify(ssl_client_ctx, SSL_VERIFY_PEER, cert_verify_callback);
 
-    p_wan_intf->ssl_client_ctx = ssl_client_ctx;
+    p_cpmgr_ctx->ssl_client_ctx = ssl_client_ctx;
 
     return ERR_OK;
 }
 
 e_err
-create_tls_server_ctx(t_wan_intf_node *p_wan_intf)
+create_ssl_server_ctx()
 {
-    int ret;
+    t_cpmgr_ctx     *p_cpmgr_ctx = cpmgr_get_ctx();
+    SSL_CTX         *ssl_server_ctx;
 
-    ret = create_ssl_ctx();
-    if (ret != ERR_OK) {
-        return ret;
-    }
+    ssl_server_ctx = SSL_CTX_new(SSLv23_server_method());
 
-    p_wan_intf->tls_server_ctx = SSL_CTX_new(SSLv23_server_method());
-
-    SSL_CTX_set_ecdh_auto(p_wan_intf->tls_server_ctx, 1);
+    SSL_CTX_set_ecdh_auto(ssl_server_ctx, 1);
 
     /* Set the key and cert */
-    if (SSL_CTX_use_certificate_file(p_wan_intf->tls_server_ctx, "server.crt", SSL_FILETYPE_PEM) <= 0) {
-        perror("Cant' open certificate.");
+    if (SSL_CTX_use_certificate_file(ssl_server_ctx, "server.crt", SSL_FILETYPE_PEM) <= 0) {
+        SSCP_DEBUGLOG("Cant' open certificate.");
         //ERR_print_errors_fp(stderr);
-        exit(EXIT_FAILURE);
+        return ERR_SSL;
     }
 
-    if (SSL_CTX_use_PrivateKey_file(p_wan_intf->tls_server_ctx, "server.key", SSL_FILETYPE_PEM) <= 0 ) {
-        perror("Cant' open private key.");
+    if (SSL_CTX_use_PrivateKey_file(ssl_server_ctx, "server.key", SSL_FILETYPE_PEM) <= 0 ) {
+        SSCP_DEBUGLOG("Cant' open private key.");
         //ERR_print_errors_fp(stderr);
-        exit(EXIT_FAILURE);
+        return ERR_SSL;
     }
 
     //SSL_CTX_set_options(server_ctx, SSL_OP_NO_SSLv2);
+    p_cpmgr_ctx->ssl_server_ctx = ssl_server_ctx;
 
     return ERR_OK;
 }

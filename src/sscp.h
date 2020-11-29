@@ -20,6 +20,9 @@ typedef struct cpmgr_ctx
 {
     struct event_base       *event_base;
     t_dll                   wan_intf_list;
+
+    SSL_CTX                 *ssl_client_ctx;
+    SSL_CTX                 *ssl_server_ctx;
 } t_cpmgr_ctx;
 
 extern t_peer   *g_peer;

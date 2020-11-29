@@ -21,9 +21,6 @@ typedef struct wan_intf_node
     struct sockaddr_in      priv_loc;
 
     struct evconnlistener   *tcp_listener;
-
-    SSL_CTX                 *tls_server_ctx;
-    SSL_CTX                 *ssl_client_ctx;
 } t_wan_intf_node;
 
 void populate_wan_intf_list(t_dll *wan_intf_list_p);

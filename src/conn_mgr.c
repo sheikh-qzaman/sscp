@@ -198,7 +198,7 @@ tls_eventcb(struct bufferevent *bev, short event, void *ctx)
 }
 
 void
-ssl_acceptcb(struct evconnlistener *ev_listener, int sock, struct sockaddr *sa, int sa_len, void *arg)
+tls_acceptcb(struct evconnlistener *ev_listener, int sock, struct sockaddr *sa, int sa_len, void *arg)
 {
     t_cpmgr_ctx             *p_cpmgr_ctx = cpmgr_get_ctx();
     t_wan_intf_node         *p_wan_intf = (t_wan_intf_node *) arg;
@@ -239,10 +239,10 @@ tcp_listener_create(t_wan_intf_node *p_wan_intf)
     t_cpmgr_ctx             *p_cpmgr_ctx = cpmgr_get_ctx();
 
     if (!p_cpmgr_ctx->ssl_server_ctx) {
-        create_ssl_server_ctx();
+        create_tls_server_ctx();
     }
 
-    p_wan_intf->tcp_listener = evconnlistener_new_bind(p_cpmgr_ctx->event_base, ssl_acceptcb, (void *) p_wan_intf,
+    p_wan_intf->tcp_listener = evconnlistener_new_bind(p_cpmgr_ctx->event_base, tls_acceptcb, (void *) p_wan_intf,
             LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE, 1024, (struct sockaddr *) &p_wan_intf->pub_loc, sizeof(p_wan_intf->pub_loc));
 
     return ERR_OK;

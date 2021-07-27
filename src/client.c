@@ -21,7 +21,7 @@ extern int    errno;
 #define MSG_SEND_INTERVAL_SEC       1 
 #define MSG_SEND_INTERVAL_MSEC      0
 
-char                *host = "15.0.0.1";
+char                *host = "127.0.0.1";
 int                 port = 4433;
 int                 count = 0;
 
@@ -219,8 +219,8 @@ create_ssl_client(t_wan_intf_node *p_wan_intf)
     t_peer                  *p_peer = g_peer;
     int                     ret, err;
     
-    if (!p_cpmgr_ctx->ssl_client_ctx) {
-        create_ssl_client_ctx();
+    if (!p_cpmgr_ctx->tls_client_ctx) {
+        create_tls_client_ctx();
     }
 
     p_peer = calloc(1, sizeof(t_peer));
@@ -231,7 +231,7 @@ create_ssl_client(t_wan_intf_node *p_wan_intf)
      * an SSL type object can be created with the SSL_new function. This function causes the newly created SSL object to inherit all
      * of the parameters set forth in the context.
      */
-    p_peer->ssl = SSL_new(p_cpmgr_ctx->ssl_client_ctx);
+    p_peer->ssl = SSL_new(p_cpmgr_ctx->tls_client_ctx);
 
     //  tcp connection
     if (connectsock(p_peer, host, port) != ERR_OK) {
@@ -251,11 +251,14 @@ create_ssl_client(t_wan_intf_node *p_wan_intf)
     //SSL_set_bio(p_peer->ssl, p_peer->sbio, p_peer->sbio);
 
     printf("Trying SSL connect again.\n");
+    ret = SSL_connect(p_peer->ssl);
+    printf("%d", ret);
     while (!(ret = SSL_connect(p_peer->ssl))) {
         err = SSL_get_error(p_peer->ssl, ret);
         if (err == SSL_ERROR_WANT_READ    ||
                    SSL_ERROR_WANT_WRITE   ||
                    SSL_ERROR_WANT_CONNECT) {
+            printf("SSL connect error %d", err);
         } else {
             printf("SSL connect error.\n");
             return 1;

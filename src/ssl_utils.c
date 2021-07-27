@@ -187,29 +187,29 @@ create_ssl_ctx()
 }
 
 e_err
-create_ssl_client_ctx()
+create_tls_client_ctx()
 {
     t_cpmgr_ctx     *p_cpmgr_ctx = cpmgr_get_ctx();
     /*
      * An SSL_CTX object will be a factory for producing SSL connection objects. This context allows us to set connection configuration
      * parameters before the connection is made, such as protocol version, certificate information, and verification requirements.
      */
-    SSL_CTX         *ssl_client_ctx;
+    SSL_CTX         *tls_client_ctx;
     int             ret;
 
-    ssl_client_ctx = SSL_CTX_new(SSLv23_client_method());
+    tls_client_ctx = SSL_CTX_new(SSLv23_client_method());
 
     /*
      * This function sets the maximum allowable depth for peer certificates. In other words, it limits the number of certificates that we are
      * willing to verify in order to ensure the chain is trusted. For example, if the depth was set to four and six certificates are present
      * in the chain to reach the trusted certificate, the verification would fail because the required depth would be too great.
      */
-    SSL_CTX_set_verify_depth(ssl_client_ctx, 1);
+    SSL_CTX_set_verify_depth(tls_client_ctx, 1);
 
-    SSL_CTX_set_ecdh_auto(ssl_client_ctx, 1);
+    SSL_CTX_set_ecdh_auto(tls_client_ctx, 1);
 
     // ca certificate
-    if (!SSL_CTX_load_verify_locations(ssl_client_ctx, "rootCA.crt",NULL)) { 
+    if (!SSL_CTX_load_verify_locations(tls_client_ctx, "rootCA.crt",NULL)) { 
         SSCP_ERRLOG("Coult not load CA certificate.");
         return ERR_SSL;
     }
@@ -230,15 +230,15 @@ create_ssl_client_ctx()
      * will prevent the server from requesting a certificate from the client in the case of a renegotiation. A certificate will still be requested during
      * the initial handshake.
      */
-    SSL_CTX_set_verify(ssl_client_ctx, SSL_VERIFY_PEER, cert_verify_callback);
+    SSL_CTX_set_verify(tls_client_ctx, SSL_VERIFY_PEER, cert_verify_callback);
 
-    p_cpmgr_ctx->ssl_client_ctx = ssl_client_ctx;
+    p_cpmgr_ctx->tls_client_ctx = tls_client_ctx;
 
     return ERR_OK;
 }
 
 e_err
-create_ssl_server_ctx()
+create_tls_server_ctx()
 {
     t_cpmgr_ctx     *p_cpmgr_ctx = cpmgr_get_ctx();
     SSL_CTX         *ssl_server_ctx;

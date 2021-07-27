@@ -40,7 +40,7 @@ populate_wan_intf_list(t_dll *p_wan_intf_list)
     p_wan_intf = calloc(1, sizeof(t_wan_intf_node));
     memcpy(&p_wan_intf->name, "ens3", 4); /* memcpy is fine here as source is null terminated*/
     p_wan_intf->pub_loc.sin_family = AF_INET;
-    p_wan_intf->pub_loc.sin_addr.s_addr = inet_addr("15.0.0.1"); /* v4addr is in_addr of network order. inet_addr returns in network order */
+    p_wan_intf->pub_loc.sin_addr.s_addr = inet_addr("127.0.0.1"); /* v4addr is in_addr of network order. inet_addr returns in network order */
     p_wan_intf->pub_loc.sin_port = htons(DEFAULT_TCP_PORT);      /* in_port_t is in network order, so convert from host order. */
 
     DLL_ADD(p_wan_intf_list, &p_wan_intf->dl_node);
@@ -70,7 +70,7 @@ event_base_create()
 }
 
 void
-tls_readcb(struct bufferevent * bev, void * arg)
+tls_readcb(struct bufferevent* bev, void* arg)
 {
     printf("Reading from buffer\n");
     struct evbuffer *in = bufferevent_get_input(bev);
@@ -124,8 +124,8 @@ sscp_destroy()
         p_wan_intf = DLL_NEXT(t_wan_intf_node, dl_node, p_wan_intf);
     }
 
-    if (p_cpmgr_ctx->ssl_client_ctx) {
-        SSL_CTX_free(p_cpmgr_ctx->ssl_client_ctx);
+    if (p_cpmgr_ctx->tls_client_ctx) {
+        SSL_CTX_free(p_cpmgr_ctx->tls_client_ctx);
     }
 
     if (p_cpmgr_ctx->ssl_server_ctx) {

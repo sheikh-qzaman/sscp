@@ -152,11 +152,12 @@ ssl_read_cert(const char *path, X509 **req)
 static int
 cert_verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
 {
-    char buf[256];
-    X509 *err_cert;
-    int err, depth;
+    X509        *err_cert;
+    char        buf[256];
+    int         err, depth;
 
-    printf("certify verify callback()\n");
+    SSCP_DEBUGLOG("certify verify...");
+
     err_cert = X509_STORE_CTX_get_current_cert(ctx);
     err = X509_STORE_CTX_get_error(ctx);
     depth = X509_STORE_CTX_get_error_depth(ctx);
@@ -189,6 +190,10 @@ e_err
 create_ssl_client_ctx()
 {
     t_cpmgr_ctx     *p_cpmgr_ctx = cpmgr_get_ctx();
+    /*
+     * An SSL_CTX object will be a factory for producing SSL connection objects. This context allows us to set connection configuration
+     * parameters before the connection is made, such as protocol version, certificate information, and verification requirements.
+     */
     SSL_CTX         *ssl_client_ctx;
     int             ret;
 

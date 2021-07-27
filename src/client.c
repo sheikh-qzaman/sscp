@@ -139,7 +139,7 @@ delete_ssl_peer(t_peer *p_peer)
     ssl = bufferevent_openssl_get_ssl(p_peer->bev);
 
     //SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN);
-    //SSL_set_shutdown(ssl, SSL_RECEIVED_SHUTDOWN);
+    SSL_set_shutdown(ssl, SSL_RECEIVED_SHUTDOWN);
     //SSL_set_shutdown(ssl, SSL_SENT_SHUTDOWN | SSL_RECEIVED_SHUTDOWN);
 
     printf("SSL %p\n", ssl);
@@ -226,6 +226,11 @@ create_ssl_client(t_wan_intf_node *p_wan_intf)
     p_peer = calloc(1, sizeof(t_peer));
     // using default context
     //p_peer->ctx = client_ctx;
+    /*
+     * In general, an application will create just one SSL_CTX object for all of the connections it makes. From this SSL_CTX object,
+     * an SSL type object can be created with the SSL_new function. This function causes the newly created SSL object to inherit all
+     * of the parameters set forth in the context.
+     */
     p_peer->ssl = SSL_new(p_cpmgr_ctx->ssl_client_ctx);
 
     //  tcp connection

@@ -180,27 +180,16 @@ void
 tls_eventcb(struct bufferevent *bev, short event, void *ctx)
 {
     if (event & BEV_EVENT_CONNECTED) {
+        printf(evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
         SSCP_DEBUGLOG("BEV_EVENT_CONNECTED\n");
     }
 
-    /*
-    if (event & BEV_EVENT_READING) {
-        printf("BEV_EVENT_READING\n");
-        printf(evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
-        printf("\n");
-    }
-
-    if (event & BEV_EVENT_WRITING) {
-        printf("BEV_EVENT_WRITING\n");
+    if (event & BEV_EVENT_EOF) {
+        SSCP_DEBUGLOG("BEV_EVENT_EOF\n");
     }
 
     if (event & BEV_EVENT_ERROR) {
-        printf("BEV_EVENT_ERROR\n");
-    }
-    */
-
-    if (event & BEV_EVENT_EOF) {
-        SSCP_DEBUGLOG("BEV_EVENT_EOF\n");
+        SSCP_DEBUGLOG("BEV_EVENT_ERROR\n");
     }
 
     if (event & BEV_EVENT_TIMEOUT) {
@@ -220,15 +209,30 @@ ssl_acceptcb(struct evconnlistener *ev_listener, int sock, struct sockaddr *sa, 
 
 	SSCP_DEBUGLOG("Client %s connected.", get_ip_str(sa, ip_str, INET_ADDRSTRLEN));
 
+    /*
+     * Creates a new SSL structure which is needed to hold the data for a TLS/SSL connection. The new structure inherits the settings
+     * of the underlying context ctx: connection method, options, verification settings, timeout settings. 
+     */
     p_client_ctx = SSL_new(p_cpmgr_ctx->ssl_server_ctx);
+
     p_event_base = evconnlistener_get_base(ev_listener);
 
+    /*
+     * If we weren't using libevent bufferevent, we'll be using openssl apis to do the ssl handshake. Following will create a new socket
+     * and complete the ssl handshake. It is also possible to do the handshake with ssl api and assign the new socket to the below
+     * api, in that case we'd put BUFFEREVENT_SSL_OPEN. BEV_OPT_CLOSE_ON_FREE makes the SSL object and the underlying fd or bufferevent
+     * get closed when the openssl bufferevent itself is closed.
+     */
     p_bev = bufferevent_openssl_socket_new(p_event_base, sock, p_client_ctx, BUFFEREVENT_SSL_ACCEPTING, BEV_OPT_CLOSE_ON_FREE);
 
     bufferevent_enable(p_bev, EV_READ | EV_WRITE);
     bufferevent_setcb(p_bev, tls_readcb, tls_writecb, tls_eventcb, NULL);
 }
 
+/*
+ * This is a plain tcp listener on the specified interface. Upon receiving a connection
+ * from a client, a ssl session will be created from the global ssl server context.
+ */
 e_err
 tcp_listener_create(t_wan_intf_node *p_wan_intf)
 {

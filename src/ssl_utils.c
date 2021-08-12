@@ -10,7 +10,6 @@
 
 #include <sscp.h>
 #include <ssl_utils.h> 
-#include <logging.h>
 
 #define COOKIE_SECRET_LENGTH            16
 
@@ -241,29 +240,45 @@ e_err
 create_tls_server_ctx()
 {
     t_cpmgr_ctx     *p_cpmgr_ctx = cpmgr_get_ctx();
-    SSL_CTX         *ssl_server_ctx;
+    SSL_CTX         *tls_server_ctx;
 
-    ssl_server_ctx = SSL_CTX_new(SSLv23_server_method());
+    tls_server_ctx = SSL_CTX_new(SSLv23_server_method());
 
-    SSL_CTX_set_ecdh_auto(ssl_server_ctx, 1);
+    SSL_CTX_set_ecdh_auto(tls_server_ctx, 1);
 
     /* Set the key and cert */
-    if (SSL_CTX_use_certificate_file(ssl_server_ctx, "server.crt", SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_certificate_file(tls_server_ctx, "server.crt", SSL_FILETYPE_PEM) <= 0) {
         SSCP_DEBUGLOG("Cant' open certificate.");
         //ERR_print_errors_fp(stderr);
         return ERR_SSL;
     }
 
-    if (SSL_CTX_use_PrivateKey_file(ssl_server_ctx, "server.key", SSL_FILETYPE_PEM) <= 0 ) {
+    if (SSL_CTX_use_PrivateKey_file(tls_server_ctx, "server.key", SSL_FILETYPE_PEM) <= 0 ) {
         SSCP_DEBUGLOG("Cant' open private key.");
         //ERR_print_errors_fp(stderr);
         return ERR_SSL;
     }
 
     //SSL_CTX_set_options(server_ctx, SSL_OP_NO_SSLv2);
-    p_cpmgr_ctx->ssl_server_ctx = ssl_server_ctx;
+    // TODO In viptela, ssl context is under wan interface, need to check whether we need
+    // per interface or global
+    p_cpmgr_ctx->tls_server_ctx = tls_server_ctx;
 
     return ERR_OK;
 }
 
+int
+evssl_init(t_wan_intf_node *p_wan_intf, t_conn_mode conn_mode)
+{
+    t_cpmgr_ctx             *p_cpmgr_ctx = cpmgr_get_ctx();
 
+    if (conn_mode == TLS_SERVER) {
+        if (!p_cpmgr_ctx->tls_server_ctx) {
+            create_tls_server_ctx();
+        }
+
+        create_global_peer(p_wan_intf);
+    }
+
+    return ERR_OK;
+}

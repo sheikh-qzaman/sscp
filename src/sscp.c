@@ -14,11 +14,8 @@
 #include <event2/listener.h>
 #include <event2/bufferevent_ssl.h>
 
-#include <logging.h>
 #include <sscp.h>
-#include <transport.h>
 #include <conn_mgr.h>
-#include <peer.h>
 #include <client.h>
 
 extern void set_config_params(int argc, char *argv[], t_init_cfg *cfg);
@@ -49,6 +46,8 @@ populate_wan_intf_list(t_dll *p_wan_intf_list)
 void
 sscp_init()
 {
+    //TODO memset pointer instead?
+    memset(&g_cpmgr_ctx, 0x0, sizeof(t_cpmgr_ctx));
     t_cpmgr_ctx         *cpmgr_ctx_p = &g_cpmgr_ctx;
 
     create_ssl_ctx();
@@ -65,6 +64,22 @@ event_base_create()
 
     p_event_base = event_base_new();
     p_cpmgr_ctx->event_base = p_event_base;
+
+    return ERR_OK;
+}
+
+e_err
+base_timer_init()
+{
+    /*
+     * In viptela there is a base timer which gets timedout every 100 ms and executes all timers.
+     * timer library keeps all the timers in a DLL and libevent timer event used to trigger the execution.
+     */
+
+    t_cpmgr_ctx             *p_cpmgr_ctx = &g_cpmgr_ctx;
+
+    // TODO Probably can use different eventbase for timer
+    p_cpmgr_ctx->timer_mgr.event_base = p_cpmgr_ctx->event_base;
 
     return ERR_OK;
 }
@@ -128,8 +143,8 @@ sscp_destroy()
         SSL_CTX_free(p_cpmgr_ctx->tls_client_ctx);
     }
 
-    if (p_cpmgr_ctx->ssl_server_ctx) {
-        SSL_CTX_free(p_cpmgr_ctx->ssl_server_ctx);
+    if (p_cpmgr_ctx->tls_server_ctx) {
+        SSL_CTX_free(p_cpmgr_ctx->tls_server_ctx);
     }
 }
 
@@ -149,6 +164,8 @@ main(int argc, char **argv)
     sscp_init();
 
     event_base_create();
+
+    base_timer_init();
     
     if (cfg.oper_mode == MODE_SERVER) {
         sscp_listen();

@@ -5,7 +5,10 @@
 #include <globals.h>
 #include <common.h>
 #include <transport.h>
+#include <security.h>
 #include <peer.h>
+#include <timer.h>
+#include <logging.h>
 
 typedef struct init_cfg
 {
@@ -19,10 +22,13 @@ typedef struct init_cfg
 typedef struct cpmgr_ctx
 {
     struct event_base       *event_base;
+    struct event            *base_timer;
+    t_timer_mgr             timer_mgr;
     t_dll                   wan_intf_list;
+    t_dll                   globaldb_dll;
 
     SSL_CTX                 *tls_client_ctx;
-    SSL_CTX                 *ssl_server_ctx;
+    SSL_CTX                 *tls_server_ctx;
 } t_cpmgr_ctx;
 
 extern t_peer   *g_peer;

@@ -1,4 +1,4 @@
-#include <peer.h>
+#include <sscp.h>
 
 /* This represents the peer on the local side corresponding the connection
  * TODO Need more info
@@ -21,9 +21,9 @@ create_global_peer(t_wan_intf_node *p_wan_intf)
     p_peer->listener_fd     = -1;
     p_peer->p_wan_intf      = p_wan_intf;
 
-    // TODO Expiray timer
+    // TODO Expiary timer
     // TODO Handshake timer
-    // TODO Save peer on wan intf
+    p_peer->p_wan_intf->g_tcp_peer = p_peer;
 
     return 0;
 }

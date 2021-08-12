@@ -16,6 +16,7 @@
 #include <sscp.h>
 #include <ssl_utils.h>
 #include <ip_util.h>
+#include <security.h>
 
 #ifdef SKIP
 e_err
@@ -173,7 +174,7 @@ init_new_connection(t_peer *p_ssl_peer, t_conn_mode conn_mode) /* vdaemon_init_n
 void
 tls_writecb(struct bufferevent *bev, void *ctx)
 {
-    printf("BEV_EVENT_WRITE\n");
+    printf("BEV_EVENT_WRITE");
 }
 
 void
@@ -181,19 +182,26 @@ tls_eventcb(struct bufferevent *bev, short event, void *ctx)
 {
     if (event & BEV_EVENT_CONNECTED) {
         printf(evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
-        SSCP_DEBUGLOG("BEV_EVENT_CONNECTED\n");
+        SSCP_DEBUGLOG("BEV_EVENT_CONNECTED");
+
+        /*
+         * At this point SSL connection is established. In viptela we set the read callback at this point not in accept
+         * and put another event callbck (post). This is to distinguish between an initial event and subsequent event after
+         * the connection got established. We could probably use the same this callback and check for appropriate flags
+         * to determe if the connection is going down i.e. we've received SSL shutdown from peer.
+         */
     }
 
     if (event & BEV_EVENT_EOF) {
-        SSCP_DEBUGLOG("BEV_EVENT_EOF\n");
+        SSCP_DEBUGLOG("BEV_EVENT_EOF");
     }
 
     if (event & BEV_EVENT_ERROR) {
-        SSCP_DEBUGLOG("BEV_EVENT_ERROR\n");
+        SSCP_DEBUGLOG("BEV_EVENT_ERROR");
     }
 
     if (event & BEV_EVENT_TIMEOUT) {
-        SSCP_DEBUGLOG("BEV_EVENT_TIMEOUT\n");
+        SSCP_DEBUGLOG("BEV_EVENT_TIMEOUT");
     }
 }
 
@@ -202,18 +210,31 @@ tls_acceptcb(struct evconnlistener *ev_listener, int sock, struct sockaddr *sa, 
 {
     t_cpmgr_ctx             *p_cpmgr_ctx = cpmgr_get_ctx();
     t_wan_intf_node         *p_wan_intf = (t_wan_intf_node *) arg;
-    struct bufferevent      *p_bev;
     SSL                     *p_client_ctx;
+    t_peer                  *p_peer;
     struct event_base       *p_event_base;
+    struct sockaddr_in      *remote;
     char                    ip_str[INET_ADDRSTRLEN];
 
 	SSCP_DEBUGLOG("Client %s connected.", get_ip_str(sa, ip_str, INET_ADDRSTRLEN));
+
+    remote = (struct sockaddr_in*) sa;
+    if (remote->sin_family == AF_INET) {
+        p_peer = p_wan_intf->g_tcp_peer;
+
+        /*
+         * In viptela, pub_loc is in host byte order and far_end_addr is network byte order.
+         * Although pub_loc internally uses sockaddr_in, which should be in network byte order.
+         */
+        memcpy(&p_peer->far_end_addr, &remote, sizeof(remote));
+        memcpy(&p_peer->pub_loc, &remote, sizeof(remote));
+    }
 
     /*
      * Creates a new SSL structure which is needed to hold the data for a TLS/SSL connection. The new structure inherits the settings
      * of the underlying context ctx: connection method, options, verification settings, timeout settings. 
      */
-    p_client_ctx = SSL_new(p_cpmgr_ctx->ssl_server_ctx);
+    p_client_ctx = SSL_new(p_cpmgr_ctx->tls_server_ctx);
 
     p_event_base = evconnlistener_get_base(ev_listener);
 
@@ -223,10 +244,21 @@ tls_acceptcb(struct evconnlistener *ev_listener, int sock, struct sockaddr *sa, 
      * api, in that case we'd put BUFFEREVENT_SSL_OPEN. BEV_OPT_CLOSE_ON_FREE makes the SSL object and the underlying fd or bufferevent
      * get closed when the openssl bufferevent itself is closed.
      */
-    p_bev = bufferevent_openssl_socket_new(p_event_base, sock, p_client_ctx, BUFFEREVENT_SSL_ACCEPTING, BEV_OPT_CLOSE_ON_FREE);
+    p_peer->bev = bufferevent_openssl_socket_new(p_event_base, sock, p_client_ctx, BUFFEREVENT_SSL_ACCEPTING, BEV_OPT_CLOSE_ON_FREE);
 
-    bufferevent_enable(p_bev, EV_READ | EV_WRITE);
-    bufferevent_setcb(p_bev, tls_readcb, tls_writecb, tls_eventcb, NULL);
+    bufferevent_priority_set(p_peer->bev, 1);
+    //TODO MSS
+
+    DLL_ADD(&p_cpmgr_ctx->globaldb_dll, &p_peer->dl_node);
+
+    // TODO enable handshake timer, this timer will be disabled in tls_eventcb
+
+    // TODO Set MSS
+    bufferevent_setcb(p_peer->bev, tls_readcb, tls_writecb, tls_eventcb, NULL);
+    bufferevent_enable(p_peer->bev, EV_READ | EV_WRITE);
+
+    // Reset global peer
+    create_global_peer(p_wan_intf);
 }
 
 /*
@@ -238,9 +270,7 @@ tcp_listener_create(t_wan_intf_node *p_wan_intf)
 {
     t_cpmgr_ctx             *p_cpmgr_ctx = cpmgr_get_ctx();
 
-    if (!p_cpmgr_ctx->ssl_server_ctx) {
-        create_tls_server_ctx();
-    }
+    evssl_init(p_wan_intf, TLS_SERVER);
 
     p_wan_intf->tcp_listener = evconnlistener_new_bind(p_cpmgr_ctx->event_base, tls_acceptcb, (void *) p_wan_intf,
             LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE, 1024, (struct sockaddr *) &p_wan_intf->pub_loc, sizeof(p_wan_intf->pub_loc));

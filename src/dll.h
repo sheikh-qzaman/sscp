@@ -99,16 +99,13 @@ static inline void DLL_ADD(t_dll *p_dll, t_dlnode *p_newnode)
     p_newnode->root = p_dll;
 #endif
 
-    if (p_dll->p_tail)
-    {
+    if (p_dll->p_tail) {
         assert(p_dll->count > 0);
 
         p_dll->p_tail->p_next = p_newnode;
         p_newnode->p_prev     = p_dll->p_tail;
         p_dll->p_tail         = p_newnode;
-    }
-    else
-    {
+    } else {
         assert(p_dll->count == 0);
 
         p_dll->p_head = p_dll->p_tail = p_newnode;
